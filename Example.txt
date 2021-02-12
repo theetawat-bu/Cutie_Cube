@@ -1,0 +1,568 @@
+#include "stm32l1xx.h"
+#include "stm32l1xx_ll_system.h"
+#include "stm32l1xx_ll_bus.h"
+#include "stm32l1xx_ll_utils.h"
+#include "stm32l1xx_ll_rcc.h"
+#include "stm32l1xx_ll_pwr.h"
+#include "stm32l1xx_ll_gpio.h"
+#include "stm32l1xx_ll_exti.h"
+//for LCD DISPLAY
+#include "stm32l1xx_ll_lcd.h"
+#include "stm32l152_glass_lcd.h"
+//for Random
+#include "stm32l1xx_ll_rtc.h"
+#include "stm32l1xx_ll_usart.h"
+#include "stdlib.h"
+//***********
+#include <stdio.h> 
+#include <string.h>
+
+//*************************** Variable*******************************
+
+char show[30];
+
+uint8_t first_num, second_num;
+uint8_t opt, usr_button, score=0, counter=0;
+uint32_t test=0;
+
+char recv_buffer[10];
+uint8_t idx=0;
+char int_to_char_for_answer[10]="";
+char int_to_char_for_recv_buffer[10]="";
+
+//***********************************************************************
+
+void SystemClock_Config(void);
+void generate_Exercise(void);
+void print_answer(void);
+void show_score(void);
+void get_answer_and_check(void);
+void USART_SendString(uint8_t* str,uint8_t size);
+
+void config_for_user_switch(void);
+void config_for_external_switch(void);
+void config_for_PA11(void); //LED RED
+void config_for_PA12(void); //LED GREEN
+void config_for_PC12(void); //LED
+void config_for_PD2(void); // Buzer
+void play_led(void); //Decoration  led
+void rtc_config(void); //For random seed
+void GPIO_USART_Configure(void); 
+void USART_Configure(void);
+//****************************************
+
+int main() 
+{
+	//Init Config
+	SystemClock_Config();
+	LCD_GLASS_Init();
+	rtc_config();
+	config_for_user_switch();
+	config_for_external_switch();
+	config_for_PA11();
+	config_for_PA12();
+	config_for_PC12();
+	config_for_PD2();
+	USART_Configure();
+	//***
+	
+	play_led();
+	while(1)
+	{
+		// Display Message "Press User button to start"
+		while(!LL_EXTI_IsActiveFlag_0_31(LL_EXTI_LINE_0))
+		{
+			sprintf(show," Press User button to start ");
+			LCD_GLASS_ScrollSentence((uint8_t*)show,1,100);
+			
+		}
+	}
+	
+	//return 0;
+}
+
+void EXTI0_IRQHandler(void)
+{
+	//Show msg START GAME
+	sprintf(show," START GAME ");
+	LCD_GLASS_ScrollSentence((uint8_t*)show,1,300);
+	LL_mDelay(3000);
+	
+	while(counter<10)
+	{
+		
+		generate_Exercise();
+		//Generate 2 numbers and print question
+		//LCD_GLASS_Clear();
+		//check_answer(fsrst_num+second_num);
+		
+		get_answer_and_check();
+		
+		LCD_GLASS_Clear();
+		counter++;
+	}
+	
+	sprintf(show," END GAME ");
+	LCD_GLASS_ScrollSentence((uint8_t*)show,1,300);
+	LL_mDelay(3000);
+	show_score(); 
+	
+	LL_EXTI_ClearFlag_0_31(LL_EXTI_LINE_0);
+}
+
+void EXTI4_IRQHandler(void)
+{
+		// Press External Switch For change Exersise
+	
+		usr_button = LL_GPIO_IsInputPinSet(GPIOA,LL_GPIO_PIN_4);
+	
+		generate_Exercise();
+
+		LL_EXTI_ClearFlag_0_31(LL_EXTI_LINE_4);
+}
+
+
+
+void get_answer_and_check(){
+	
+	USART_SendString((uint8_t *)"Ans ",5);
+	
+	while(1){
+		
+		while(LL_USART_IsActiveFlag_RXNE(USART1) == RESET);
+		recv_buffer[idx++]  = LL_USART_ReceiveData8(USART1);
+	
+		//format [.][.][.][.]...[\r][\n];
+		
+		if(strstr((const char*) recv_buffer,"\r\n") != NULL)
+		{
+			if( strcmp(int_to_char_for_answer,recv_buffer) ==0)
+				{
+				USART_SendString((uint8_t *)"Correct\r\n",9);
+				score+=1;//update score;
+				LL_GPIO_ResetOutputPin(GPIOC,LL_GPIO_PIN_12);//GREEN LED ON
+				LL_GPIO_SetOutputPin(GPIOD,LL_GPIO_PIN_2);//Buzzer ON;
+				LL_mDelay(500);
+				LL_GPIO_ResetOutputPin(GPIOD,LL_GPIO_PIN_2);//Buzzer OFF;
+				LL_mDelay(500);
+				LL_GPIO_SetOutputPin(GPIOD,LL_GPIO_PIN_2);//Buzzer ON;
+				LL_mDelay(500);
+				LL_GPIO_ResetOutputPin(GPIOD,LL_GPIO_PIN_2);//Buzzer OFF;
+				LL_GPIO_SetOutputPin(GPIOC,LL_GPIO_PIN_12);//GREEN LED OFF
+					
+				memset(recv_buffer, 0, sizeof recv_buffer);
+				}
+			else if(strcmp(int_to_char_for_answer,recv_buffer) !=0)
+				{
+					USART_SendString((uint8_t *)"Wrong\r\n",7);
+					LL_GPIO_SetOutputPin(GPIOD,LL_GPIO_PIN_2);//Buzzer ON;
+					LL_GPIO_ResetOutputPin(GPIOA,LL_GPIO_PIN_11); //RED LED ON
+					print_answer(); //Show Real Answer
+					LL_mDelay(3000);
+					LL_GPIO_SetOutputPin(GPIOA,LL_GPIO_PIN_11);//RED LED OFF;
+					LL_GPIO_ResetOutputPin(GPIOD,LL_GPIO_PIN_2);//Buzzer OFF;
+					memset(recv_buffer, 0, sizeof recv_buffer);
+				}
+			memset(recv_buffer, 0, sizeof recv_buffer);
+			idx=0;
+			break;
+		}
+		
+	}
+	
+}
+	
+void USART_SendString(uint8_t* str,uint8_t size)
+	//Send String To Display String on Tera
+	{
+	uint8_t i=0;
+	while(i<size)
+	{
+		while(LL_USART_IsActiveFlag_TXE(USART1) == RESET);
+		LL_USART_TransmitData8(USART1,str[i]);
+		++i;
+	}
+	
+}
+
+void generate_Exercise(void)
+{
+	//test=LL_RTC_TIME_Get(RTC);
+	//test=LL_RTC_DATE_Get(RTC);
+	
+	srand((LL_RTC_DATE_Get(RTC))*(LL_RTC_TIME_Get(RTC)));//seed for random
+	
+	// %9+1 for .../0 = error
+	
+	first_num=rand()%99+1;
+	second_num=rand()%99+1;
+	
+	srand(LL_RTC_TIME_Get(RTC));
+	
+	opt=rand()%4;
+
+	// Show Exercise
+	LCD_GLASS_Clear();	
+	switch (opt)
+	{
+		case 0: 	sprintf(show,"%d+%d",first_num,second_num);
+							sprintf(int_to_char_for_answer,"%d\r\n",first_num+second_num);
+							break;
+		case 1: 	sprintf(show,"%d-%d",first_num,second_num);
+							sprintf(int_to_char_for_answer,"%d\r\n",first_num-second_num);
+							break;
+		case 2: 	second_num %=10;
+							sprintf(show,"%d*%d",first_num,second_num);
+							sprintf(int_to_char_for_answer,"%d\r\n",first_num*second_num);
+							break;
+		case 3: 	second_num %=10;
+							sprintf(show,"%d/%d",first_num,second_num);
+							sprintf(int_to_char_for_answer,"%d\r\n",first_num/second_num);
+							break;
+	}
+
+	LCD_GLASS_DisplayString((uint8_t*)show); //Display Exersise on LCD
+	//LL_mDelay(3000);
+	//LCD_GLASS_Clear();	
+}
+
+void print_answer(void)
+{
+	//Case answer wrong
+	switch (opt)
+	{
+		case 0: 	sprintf(show,"ANS%d",first_num+second_num);
+							break;
+		case 1: 	sprintf(show,"ANS%d",first_num-second_num);
+							break;
+		case 2: 	sprintf(show,"ANS%d",first_num*second_num);
+							break;
+		case 3: 	sprintf(show,"ANS%d",first_num/second_num);
+							break;
+	}
+
+	LCD_GLASS_DisplayString((uint8_t*)show);
+	LL_mDelay(2000);
+	LCD_GLASS_Clear();
+}
+
+void show_score(void)
+{
+	
+	sprintf(show,"SCORE %d/10 SCORE %d/10 SCORE %d/10", score, score, score);
+	LCD_GLASS_ScrollSentence((uint8_t*)show,1,200);
+	
+	LL_mDelay(16000);
+	LCD_GLASS_Clear();
+}
+
+void GPIO_USART_Configure(void)
+{
+ LL_GPIO_InitTypeDef gpio_conf;
+ LL_AHB1_GRP1_EnableClock(LL_AHB1_GRP1_PERIPH_GPIOB);
+
+ gpio_conf.Pin = LL_GPIO_PIN_6; 
+ gpio_conf.OutputType = LL_GPIO_OUTPUT_PUSHPULL;
+ gpio_conf.Pull = LL_GPIO_PULL_UP;
+ gpio_conf.Speed = LL_GPIO_SPEED_FREQ_VERY_HIGH;
+ gpio_conf.Mode = LL_GPIO_MODE_ALTERNATE;
+ gpio_conf.Alternate = LL_GPIO_AF_7;
+ LL_GPIO_Init(GPIOB, &gpio_conf); //TXD
+ 
+ gpio_conf.Pin = LL_GPIO_PIN_7;
+ LL_GPIO_Init(GPIOB, &gpio_conf);//RXD
+}
+
+void USART_Configure(void)
+{
+ LL_USART_InitTypeDef usart_conf;
+ GPIO_USART_Configure();
+ LL_APB2_GRP1_EnableClock(LL_APB2_GRP1_PERIPH_USART1);
+ 
+ usart_conf.BaudRate = 9600;
+ usart_conf.DataWidth = LL_USART_DATAWIDTH_8B;
+ usart_conf.HardwareFlowControl = LL_USART_HWCONTROL_NONE;
+ usart_conf.Parity = LL_USART_PARITY_NONE;
+ usart_conf.StopBits = LL_USART_STOPBITS_1;
+ usart_conf.OverSampling = LL_USART_OVERSAMPLING_16;
+ usart_conf.TransferDirection = LL_USART_DIRECTION_TX_RX; //READ AND RECIVE
+
+ LL_USART_Init(USART1, &usart_conf);
+ LL_USART_Enable(USART1);
+}
+
+void config_for_user_switch(void)
+{
+	LL_GPIO_InitTypeDef GPIO_InitStruct;
+	LL_AHB1_GRP1_EnableClock(LL_AHB1_GRP1_PERIPH_GPIOA);
+	
+	GPIO_InitStruct.Mode = LL_GPIO_MODE_INPUT  ;
+	GPIO_InitStruct.Pin = LL_GPIO_PIN_0;
+	GPIO_InitStruct.OutputType = LL_GPIO_OUTPUT_PUSHPULL;
+	GPIO_InitStruct.Pull = LL_GPIO_PULL_NO;
+	GPIO_InitStruct.Speed = LL_GPIO_SPEED_FREQ_HIGH;
+	
+	LL_GPIO_Init(GPIOA,&GPIO_InitStruct);
+	
+	LL_EXTI_InitTypeDef EXTI_InitStruct;
+
+	LL_APB2_GRP1_EnableClock(LL_APB2_GRP1_PERIPH_SYSCFG);													//Enable Clock to SYSCFG
+	LL_SYSCFG_SetEXTISource(LL_SYSCFG_EXTI_PORTA, LL_SYSCFG_EXTI_LINE0);					//Set EXTI
+	
+	EXTI_InitStruct.Line_0_31 = LL_EXTI_LINE_0;
+	EXTI_InitStruct.LineCommand = ENABLE;
+	EXTI_InitStruct.Mode = LL_EXTI_MODE_IT;
+	EXTI_InitStruct.Trigger = LL_EXTI_TRIGGER_RISING;
+	
+	LL_EXTI_Init(&EXTI_InitStruct);
+	NVIC_EnableIRQ((IRQn_Type) 6);
+	NVIC_SetPriority((IRQn_Type) 6, 1);
+	//NVIC_
+}
+
+void config_for_external_switch(void)
+{
+	LL_GPIO_InitTypeDef GPIO_InitStruct;
+	
+	GPIO_InitStruct.Mode = LL_GPIO_MODE_INPUT;
+	GPIO_InitStruct.Pin = LL_GPIO_PIN_4;
+	GPIO_InitStruct.OutputType = LL_GPIO_OUTPUT_PUSHPULL;
+	GPIO_InitStruct.Pull = LL_GPIO_PULL_NO;
+	GPIO_InitStruct.Speed = LL_GPIO_SPEED_FREQ_HIGH;
+	
+	LL_GPIO_Init(GPIOA,&GPIO_InitStruct);
+	
+	LL_EXTI_InitTypeDef EXTI_InitStruct;
+
+	LL_APB2_GRP1_EnableClock(LL_APB2_GRP1_PERIPH_SYSCFG);													//Enable Clock to SYSCFG
+	LL_SYSCFG_SetEXTISource(LL_SYSCFG_EXTI_PORTA, LL_SYSCFG_EXTI_LINE4);					//Set EXTI
+	
+	EXTI_InitStruct.Line_0_31 = LL_EXTI_LINE_4;
+	EXTI_InitStruct.LineCommand = ENABLE;
+	EXTI_InitStruct.Mode = LL_EXTI_MODE_IT;
+	EXTI_InitStruct.Trigger = LL_EXTI_TRIGGER_RISING;
+	
+	LL_EXTI_Init(&EXTI_InitStruct);
+	NVIC_EnableIRQ((IRQn_Type) 10);
+	NVIC_SetPriority((IRQn_Type) 10, 0);
+	//NVIC_
+}
+
+void config_for_PA11(void)
+{
+	//FOR GREEN LED
+	LL_GPIO_InitTypeDef GPIO_InitStruct;
+	LL_AHB1_GRP1_EnableClock(LL_AHB1_GRP1_PERIPH_GPIOA);
+	
+	GPIO_InitStruct.Mode = LL_GPIO_MODE_OUTPUT;  ;
+	GPIO_InitStruct.Pin = LL_GPIO_PIN_11;
+	GPIO_InitStruct.OutputType = LL_GPIO_OUTPUT_PUSHPULL;
+	GPIO_InitStruct.Pull = LL_GPIO_PULL_NO;
+	GPIO_InitStruct.Speed = LL_GPIO_SPEED_FREQ_HIGH;
+
+	LL_GPIO_Init(GPIOA,&GPIO_InitStruct);
+}
+
+void config_for_PA12(void)
+{
+	//FOR GREEN LED
+	LL_GPIO_InitTypeDef GPIO_InitStruct;
+	LL_AHB1_GRP1_EnableClock(LL_AHB1_GRP1_PERIPH_GPIOA);
+	
+	GPIO_InitStruct.Mode = LL_GPIO_MODE_OUTPUT;  ;
+	GPIO_InitStruct.Pin = LL_GPIO_PIN_12;
+	GPIO_InitStruct.OutputType = LL_GPIO_OUTPUT_PUSHPULL;
+	GPIO_InitStruct.Pull = LL_GPIO_PULL_NO;
+	GPIO_InitStruct.Speed = LL_GPIO_SPEED_FREQ_HIGH;
+	
+	LL_GPIO_Init(GPIOA,&GPIO_InitStruct);
+}
+
+void config_for_PC12(void)
+{
+	//FOR YELLOW LED
+	LL_GPIO_InitTypeDef GPIO_InitStruct;
+	LL_AHB1_GRP1_EnableClock(LL_AHB1_GRP1_PERIPH_GPIOC);
+	
+	GPIO_InitStruct.Mode = LL_GPIO_MODE_OUTPUT;  ;
+	GPIO_InitStruct.Pin = LL_GPIO_PIN_12;
+	GPIO_InitStruct.OutputType = LL_GPIO_OUTPUT_PUSHPULL;
+	GPIO_InitStruct.Pull = LL_GPIO_PULL_NO;
+	GPIO_InitStruct.Speed = LL_GPIO_SPEED_FREQ_HIGH;
+	
+	LL_GPIO_Init(GPIOC,&GPIO_InitStruct);
+}
+
+
+void config_for_PD2(void)
+{
+	//FOR Buzzer
+	LL_GPIO_InitTypeDef GPIO_InitStruct;
+	LL_AHB1_GRP1_EnableClock(LL_AHB1_GRP1_PERIPH_GPIOD);
+	
+	GPIO_InitStruct.Mode = LL_GPIO_MODE_OUTPUT;  ;
+	GPIO_InitStruct.Pin = LL_GPIO_PIN_2;
+	GPIO_InitStruct.OutputType = LL_GPIO_OUTPUT_PUSHPULL;
+	GPIO_InitStruct.Pull = LL_GPIO_PULL_NO;
+	GPIO_InitStruct.Speed = LL_GPIO_SPEED_FREQ_HIGH;
+	
+	LL_GPIO_Init(GPIOD,&GPIO_InitStruct);
+}
+
+void play_led(){
+	LL_GPIO_SetOutputPin(GPIOA,LL_GPIO_PIN_12);
+	LL_GPIO_SetOutputPin(GPIOC,LL_GPIO_PIN_12);
+	LL_GPIO_SetOutputPin(GPIOA,LL_GPIO_PIN_11);
+	
+	//Blue
+	LL_GPIO_ResetOutputPin(GPIOA,LL_GPIO_PIN_12);
+	LL_mDelay(500);
+	LL_GPIO_SetOutputPin(GPIOA,LL_GPIO_PIN_12);
+	LL_mDelay(500);
+	//Red
+	LL_GPIO_ResetOutputPin(GPIOA,LL_GPIO_PIN_11);
+	LL_mDelay(500);
+	LL_GPIO_SetOutputPin(GPIOA,LL_GPIO_PIN_11);
+	LL_mDelay(500);
+	//Green
+	LL_GPIO_ResetOutputPin(GPIOC,LL_GPIO_PIN_12);
+	LL_mDelay(500);
+	LL_GPIO_SetOutputPin(GPIOC,LL_GPIO_PIN_12);
+	LL_mDelay(500);
+	//Yellow
+	LL_GPIO_ResetOutputPin(GPIOA,LL_GPIO_PIN_11);
+	LL_GPIO_ResetOutputPin(GPIOC,LL_GPIO_PIN_12);
+	LL_mDelay(500);
+	LL_GPIO_SetOutputPin(GPIOA,LL_GPIO_PIN_11);
+	LL_GPIO_SetOutputPin(GPIOC,LL_GPIO_PIN_12);
+	LL_mDelay(500);
+	//Pink
+	LL_GPIO_ResetOutputPin(GPIOA,LL_GPIO_PIN_11);
+	LL_GPIO_ResetOutputPin(GPIOA,LL_GPIO_PIN_12);
+	LL_mDelay(500);
+	LL_GPIO_SetOutputPin(GPIOA,LL_GPIO_PIN_11);
+	LL_GPIO_SetOutputPin(GPIOA,LL_GPIO_PIN_12);
+	LL_mDelay(500);
+	//Mint
+	LL_GPIO_ResetOutputPin(GPIOC,LL_GPIO_PIN_12);
+	LL_GPIO_ResetOutputPin(GPIOA,LL_GPIO_PIN_12);
+	LL_mDelay(500);
+	LL_GPIO_SetOutputPin(GPIOC,LL_GPIO_PIN_12);
+	LL_GPIO_SetOutputPin(GPIOA,LL_GPIO_PIN_12);
+}
+
+void rtc_config()
+{
+	LL_RTC_InitTypeDef RTC_InitStruct;
+	LL_RTC_TimeTypeDef RTC_TimeStruct;
+	
+
+	LL_RTC_DateTypeDef RTC_DateStruct;
+	LL_RTC_AlarmTypeDef RTC_AlarmStruct;
+	
+	LL_RCC_SetRTCClockSource(LL_RCC_RTC_CLKSOURCE_LSE);
+	LL_RCC_EnableRTC();
+	
+	//test = LL_RCC_IsEnabledRTC();
+	
+	RTC_InitStruct.HourFormat = LL_RTC_HOURFORMAT_24HOUR;
+	RTC_InitStruct.AsynchPrescaler = 127;
+	RTC_InitStruct.SynchPrescaler = 255;
+	
+	LL_RTC_Init(RTC, &RTC_InitStruct);
+
+	RTC_TimeStruct.TimeFormat = LL_RTC_TIME_FORMAT_AM_OR_24;
+	RTC_TimeStruct.Hours      = 0U;
+  RTC_TimeStruct.Minutes    = 0U;
+  RTC_TimeStruct.Seconds    = 0U;
+	
+	LL_RTC_TIME_StructInit(&RTC_TimeStruct);
+	
+	RTC_DateStruct.WeekDay = LL_RTC_WEEKDAY_MONDAY;
+  RTC_DateStruct.Day     = 1U;
+  RTC_DateStruct.Month   = LL_RTC_MONTH_JANUARY;
+  RTC_DateStruct.Year    = 0U;
+	
+	LL_RTC_DATE_Init(RTC, LL_RTC_FORMAT_BCD, &RTC_DateStruct);
+	
+	RTC_AlarmStruct.AlarmTime.Hours = 0;
+	RTC_AlarmStruct.AlarmTime.Minutes = 0;
+	RTC_AlarmStruct.AlarmTime.Seconds = 10;
+	RTC_AlarmStruct.AlarmDateWeekDaySel = LL_RTC_ALMA_DATEWEEKDAYSEL_DATE;
+	RTC_AlarmStruct.AlarmDateWeekDay = 1;
+	
+	LL_RTC_ALMA_Init(RTC, LL_RTC_FORMAT_BCD, &RTC_AlarmStruct);
+	
+	NVIC_SetPriority(RTC_Alarm_IRQn, 0);
+	NVIC_EnableIRQ(RTC_Alarm_IRQn);
+}
+
+/* ==============   BOARD SPECIFIC CONFIGURATION CODE BEGIN    ============== */
+/**
+  * @brief  System Clock Configuration
+  *         The system Clock is configured as follow :
+  *            System Clock source            = PLL (HSI)
+  *            SYSCLK(Hz)                     = 32000000
+  *            HCLK(Hz)                       = 32000000
+  *            AHB Prescaler                  = 1
+  *            APB1 Prescaler                 = 1
+  *            APB2 Prescaler                 = 1
+  *            HSI Frequency(Hz)              = 16000000
+  *            PLLMUL                         = 6
+  *            PLLDIV                         = 3
+  *            Flash Latency(WS)              = 1
+  * @retval None
+  */
+void SystemClock_Config(void)
+{
+  /* Enable ACC64 access and set FLASH latency */ 
+  LL_FLASH_Enable64bitAccess();; 
+  LL_FLASH_SetLatency(LL_FLASH_LATENCY_1);
+
+  /* Set Voltage scale1 as MCU will run at 32MHz */
+  LL_APB1_GRP1_EnableClock(LL_APB1_GRP1_PERIPH_PWR);
+  LL_PWR_SetRegulVoltageScaling(LL_PWR_REGU_VOLTAGE_SCALE1);
+  
+  /* Poll VOSF bit of in PWR_CSR. Wait until it is reset to 0 */
+  while (LL_PWR_IsActiveFlag_VOSF() != 0)
+  {
+  };
+  
+  /* Enable HSI if not already activated*/
+  if (LL_RCC_HSI_IsReady() == 0)
+  {
+    /* HSI configuration and activation */
+    LL_RCC_HSI_Enable();
+    while(LL_RCC_HSI_IsReady() != 1)
+    {
+    };
+  }
+  
+	
+  /* Main PLL configuration and activation */
+  LL_RCC_PLL_ConfigDomain_SYS(LL_RCC_PLLSOURCE_HSI, LL_RCC_PLL_MUL_6, LL_RCC_PLL_DIV_3);
+
+  LL_RCC_PLL_Enable();
+  while(LL_RCC_PLL_IsReady() != 1)
+  {
+  };
+  
+  /* Sysclk activation on the main PLL */
+  LL_RCC_SetAHBPrescaler(LL_RCC_SYSCLK_DIV_1);
+  LL_RCC_SetSysClkSource(LL_RCC_SYS_CLKSOURCE_PLL);
+  while(LL_RCC_GetSysClkSource() != LL_RCC_SYS_CLKSOURCE_STATUS_PLL)
+  {
+  };
+
+  /* Set APB1 & APB2 prescaler*/
+  LL_RCC_SetAPB1Prescaler(LL_RCC_APB1_DIV_1);
+  LL_RCC_SetAPB2Prescaler(LL_RCC_APB2_DIV_1);
+
+  /* Set systick to 1ms in using frequency set to 32MHz                             */
+  /* This frequency can be calculated through LL RCC macro                          */
+  /* ex: __LL_RCC_CALC_PLLCLK_FREQ (HSI_VALUE, LL_RCC_PLL_MUL_6, LL_RCC_PLL_DIV_3); */
+  LL_Init1msTick(32000000);
+  
+  /* Update CMSIS variable (which can be updated also through SystemCoreClockUpdate function) */
+  LL_SetSystemCoreClock(32000000);
+}
