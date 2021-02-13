@@ -27,8 +27,8 @@
 #define GREEN_LED LL_GPIO_PIN_7
 #define SS LL_GPIO_PIN_4
 #define SCK LL_GPIO_PIN_5
-#define MISO LL_GPIO_PIN_6
-#define MOSI LL_GPIO_PIN_7
+#define MISO LL_GPIO_PIN_11
+#define MOSI LL_GPIO_PIN_12
 
 #define TOTAL_EFFECTS 8
 #define RAIN 0
