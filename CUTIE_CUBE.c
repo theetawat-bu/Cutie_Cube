@@ -116,7 +116,7 @@ int main()
 		uint64_t current_time;												//In Progress : current_time = millis()
 		randomTimer++;
 		
-		if(!LL_GPIO_IsInputPinSet(GPIOB, BUTTON_PIN) || (current_time - lastEffectChange >= effectDuration && autoRotate))
+		if(!LL_GPIO_IsInputPinSet(GPIOB, BUTTON_PIN))
 		{
 			//lastEffectChange =                      //millis()
 			clearCube();
