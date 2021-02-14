@@ -279,7 +279,7 @@ void planeBoing(void)
 		//axis = rand()%3;
 		
     //planePosition = random(0, 2) * 7;
-		//planePosition = rand(2) * 7;
+		//planePosition = rand()%2 * 7;
 		
     setPlane(axis, planePosition);
     if(axis == XAXIS) 
@@ -379,7 +379,7 @@ void sendVoxels()
       for(uint8_t z = 0; z < 8; z++) 
 			{
         //setVoxel(x, random(0, 2) * 7, z);
-				//setVoxel(x, rand(2) * 7, z);
+				//setVoxel(x, rand()%2 * 7, z);
       }
     }
     loading = false;
@@ -391,10 +391,10 @@ void sendVoxels()
     if(!sending) 
 		{
       //selX = random(0, 8);
-			//selX = rand(8);
+			//selX = rand()%8;
 			
       //selZ = random(0, 8);
-			//selZ = rand(8);
+			//selZ = rand()%8;
 			
       if (getVoxel(selX, 0, selZ)) 
 			{
@@ -487,9 +487,9 @@ void cubeJump()
     //yPos = random(0, 2) * 7;
     //zPos = random(0, 2) * 7;
 		
-		//xPos = rand(2) * 7;
-    //yPos = rand(2) * 7;
-    //zPos = rand(2) * 7;
+		//xPos = rand()%2 * 7;
+    //yPos = rand()%2 * 7;
+    //zPos = rand()%2 * 7;
 		
 		
     cubeSize = 8;
@@ -545,9 +545,9 @@ void cubeJump()
         //zPos = random(0, 2) * 7;
 				
 				
-				//xPos = rand(2) * 7;
-        //yPos = rand(2) * 7;
-        //zPos = rand(2) * 7;
+				//xPos = rand()%2 * 7;
+        //yPos = rand()%2 * 7;
+        //zPos = rand()%2 * 7;
       }
     } 
 		else 
