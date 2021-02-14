@@ -33,18 +33,17 @@
 #define GREEN_LED LL_GPIO_PIN_7
 #define SS LL_GPIO_PIN_4
 #define SCK LL_GPIO_PIN_5
-#define MISO LL_GPIO_PIN_6
-#define MOSI LL_GPIO_PIN_7
+#define MISO LL_GPIO_PIN_11
+#define MOSI LL_GPIO_PIN_12
 
-#define TOTAL_EFFECTS 8
+#define TOTAL_EFFECTS 7
 #define RAIN 0
 #define PLANE_BOING 1
 #define SEND_VOXELS 2
 #define WOOP_WOOP 3
 #define CUBE_JUMP 4
 #define GLOW 5
-#define TEXT 6
-#define LIT 7
+#define LIT 6
 
 #define RAIN_TIME 260
 #define PLANE_BOING_TIME 220
@@ -68,7 +67,7 @@ uint8_t characters[10][8] = {
   {0x3C, 0x42, 0x42, 0x42, 0x3C, 0x40, 0x40, 0x3C}, //9
 };
 
-uint8_t cube[8][8];
+uint8_t cube[4][4];
 uint8_t currentEffect;
 
 uint16_t timer;
@@ -78,6 +77,7 @@ uint64_t randomTimer;
 bool autoRotate = true;
 uint64_t lastEffectChange = 0;
 uint32_t effectDuration = 5000;
+uint64_t current_time;												//In Progress : current_time = millis()
 
 bool loading;
 void rtc_config(void);
@@ -92,7 +92,6 @@ void sendVoxels(void);
 void woopWoop(void);
 void cubeJump(void);
 void glow(void);
-void text(char string[], uint8_t );
 void lit(void);
 void renderCube(void);
 void shift(uint8_t dir);
@@ -116,15 +115,16 @@ int main()
 	
 	//randomSeed(analogRead(0))
 	
-	//srand((LL_RTC_DATE_Get(RTC))*(LL_RTC_TIME_Get(RTC)));//seed for random
-	//srand(LL_RTC_TIME_Get(RTC));
+	srand((LL_RTC_DATE_Get(RTC))*(LL_RTC_TIME_Get(RTC)));//seed for random
+	srand(LL_RTC_TIME_Get(RTC));
 	
 	
 	LL_GPIO_SetOutputPin(GPIOB, GREEN_LED);
 	
 	while(true)
 	{
-		uint64_t current_time;												//In Progress : current_time = millis()
+		
+		current_time = randomTimer%1000;
 		randomTimer++;
 		
 		Active(current_time,randomTimer);
@@ -138,7 +138,7 @@ int main()
 }
 void Active(uint8_t current_time,uint8_t randomTimer)
 {
-	if(!LL_GPIO_IsInputPinSet(GPIOB, BUTTON_PIN) || (current_time - lastEffectChange >= effectDuration && autoRotate))
+	if(!LL_GPIO_IsInputPinSet(GPIOB, BUTTON_PIN) )
 		{
 			//lastEffectChange =                      //millis()
 			clearCube();
@@ -150,8 +150,8 @@ void Active(uint8_t current_time,uint8_t randomTimer)
 				currentEffect = 0;		
 			}
 			//randomSeed(randomTimer);
-			//srand((LL_RTC_DATE_Get(RTC))*(LL_RTC_TIME_Get(RTC)));//seed for random
-			//srand(LL_RTC_TIME_Get(RTC));
+			srand((LL_RTC_DATE_Get(RTC))*(LL_RTC_TIME_Get(RTC)));//seed for random
+			srand(LL_RTC_TIME_Get(RTC));
 			
 			randomTimer = 0;
 			LL_GPIO_SetOutputPin(GPIOB, RED_LED);
@@ -173,7 +173,6 @@ void Select_Effect(uint8_t currentEffect)
 			case WOOP_WOOP : woopWoop(); break;
 			case CUBE_JUMP : cubeJump(); break;
 			case GLOW : glow(); break;
-			case TEXT : text("0123456789", 10); break;
 			case LIT : lit(); break;
 			
 			default : rain();
@@ -236,11 +235,11 @@ void SPI_Config(void)
 void renderCube(void)
 {
 	uint8_t i, j;
-	for(i = 0; i < 8; ++i)
+	for(i = 0; i < 4; ++i)
 	{
 		LL_GPIO_ResetOutputPin(GPIOA, SS);
 		LL_SPI_TransmitData8(SPI1, 0x01<<i);
-		for(j = 0; j < 8; ++j)
+		for(j = 0; j < 4; ++j)
 		{
 			LL_SPI_TransmitData8(SPI1, cube[i][j]);
 		}
@@ -251,8 +250,8 @@ void renderCube(void)
 void rain(void)
 {
 	uint8_t i;
-	//srand((LL_RTC_DATE_Get(RTC))*(LL_RTC_TIME_Get(RTC)));//seed for random
-	//srand(LL_RTC_TIME_Get(RTC));
+	srand((LL_RTC_DATE_Get(RTC))*(LL_RTC_TIME_Get(RTC)));//seed for random
+	srand(LL_RTC_TIME_Get(RTC));
 	
 	if(loading)
 	{
@@ -265,13 +264,13 @@ void rain(void)
 		timer = 0;
 		shift(NEG_Y);
 		uint8_t numDrops;     //= random(0, 5);
-		//numDrops = rand()%5;
+		numDrops = rand()%4;
 		
 		for(i = 0; i < numDrops; ++i)
 		{
 			//setVoxel(random(0, 8), 7, random(0, 8))
 			
-			//setVoxel(rand()%8,7,rand()%8)
+			setVoxel(rand()%4,3,rand()%4);
 		}
 	}
 }
@@ -282,17 +281,17 @@ void planeBoing(void)
 	uint8_t planeDirection = 0;
 	bool looped = false;
 	
-	//srand((LL_RTC_DATE_Get(RTC))*(LL_RTC_TIME_Get(RTC)));//seed for random
-	//srand(LL_RTC_TIME_Get(RTC));
+	srand((LL_RTC_DATE_Get(RTC))*(LL_RTC_TIME_Get(RTC)));//seed for random
+	srand(LL_RTC_TIME_Get(RTC));
 	
 	if(loading) 
 	{
     clearCube();
     uint8_t axis; 				//= random(0, 3);
-		//axis = rand()%3;
+		axis = rand()%3;
 		
     //planePosition = random(0, 2) * 7;
-		//planePosition = rand()%2 * 7;
+		planePosition = rand()%2 * 7;
 		
     setPlane(axis, planePosition);
     if(axis == XAXIS) 
@@ -381,8 +380,8 @@ void sendVoxels()
 	uint8_t selZ = 0;
 	uint8_t sendDirection = 0;
 	bool sending = false;
-	//srand((LL_RTC_DATE_Get(RTC))*(LL_RTC_TIME_Get(RTC)));//seed for random
-	//srand(LL_RTC_TIME_Get(RTC));
+	srand((LL_RTC_DATE_Get(RTC))*(LL_RTC_TIME_Get(RTC)));//seed for random
+	srand(LL_RTC_TIME_Get(RTC));
 	
   if(loading) 
 	{
@@ -392,7 +391,7 @@ void sendVoxels()
       for(uint8_t z = 0; z < 8; z++) 
 			{
         //setVoxel(x, random(0, 2) * 7, z);
-				//setVoxel(x, rand()%2 * 7, z);
+				setVoxel(x, rand()%2 * 7, z);
       }
     }
     loading = false;
@@ -404,10 +403,10 @@ void sendVoxels()
     if(!sending) 
 		{
       //selX = random(0, 8);
-			//selX = rand()%8;
+			selX = rand()%8;
 			
       //selZ = random(0, 8);
-			//selZ = rand()%8;
+			selZ = rand()%8;
 			
       if (getVoxel(selX, 0, selZ)) 
 			{
@@ -467,7 +466,7 @@ void woopWoop()
     if(cubeExpanding) 
 		{
       cubeSize += 2;
-      if(cubeSize == 8) 
+      if(cubeSize == 4) 
 			{
         cubeExpanding = false;
       }
@@ -500,12 +499,12 @@ void cubeJump()
     //yPos = random(0, 2) * 7;
     //zPos = random(0, 2) * 7;
 		
-		//xPos = rand()%2 * 7;
-    //yPos = rand()%2 * 7;
-    //zPos = rand()%2 * 7;
+		xPos = rand()%2 * 3;
+    yPos = rand()%2 * 3;
+    zPos = rand()%2 * 3;
 		
 		
-    cubeSize = 8;
+    cubeSize = 4;
     cubeExpanding = false;
     loading = false;
   }
@@ -543,14 +542,14 @@ void cubeJump()
 		{
       drawCube(xPos, yPos + 1 - cubeSize, zPos + 1 - cubeSize, cubeSize);
     } 
-		else if(xPos == 7 && yPos == 0 && zPos == 7) 
+		else if(xPos == 3 && yPos == 0 && zPos == 3) 
 		{
       drawCube(xPos + 1 - cubeSize, yPos, zPos + 1 - cubeSize, cubeSize);
     }
     if(cubeExpanding) 
 		{
       cubeSize++;
-      if(cubeSize == 8) 
+      if(cubeSize == 4) 
 			{
         cubeExpanding = false;
         //xPos = random(0, 2) * 7;
@@ -558,9 +557,9 @@ void cubeJump()
         //zPos = random(0, 2) * 7;
 				
 				
-				//xPos = rand()%2 * 7;
-        //yPos = rand()%2 * 7;
-        //zPos = rand()%2 * 7;
+				xPos = rand()%2 * 3;
+        yPos = rand()%2 * 3;
+        zPos = rand()%2 * 3;
       }
     } 
 		else 
@@ -583,6 +582,7 @@ void glow()
 	uint8_t selY = 0;
 	uint8_t selZ = 0;
 	srand((LL_RTC_DATE_Get(RTC))*(LL_RTC_TIME_Get(RTC)));//seed for random
+	
   if(loading) 
 	{
     clearCube();
@@ -602,13 +602,13 @@ void glow()
         do 
 				{
           //selX = random(0, 8);
-					//selX = rand()%8;
+					selX = rand()%4;
 					
           //selY = random(0, 8);
-					//selY =rand()%8;''
+					selY =rand()%4;
 					
           //selZ = random(0, 8);
-					//selZ = rand()%8;''
+					selZ = rand()%4;
 					
         } while(getVoxel(selX, selY, selZ));
 				
@@ -633,13 +633,13 @@ void glow()
         do 
 				{
           //selX = random(0, 8);
-					//selX = rand()%8;
+					selX = rand()%4;
 					
           //selY = random(0, 8);
-					//selY =rand()%8;''
+					selY =rand()%4;
 					
           //selZ = random(0, 8);
-					//selZ = rand()%8;''
+					selZ = rand()%4;
         } while(!getVoxel(selX, selY, selZ));
 				
         clearVoxel(selX, selY, selZ);
@@ -655,54 +655,15 @@ void glow()
   }
 }
 
-void text(char string[], uint8_t len) 
-{
-	uint8_t charCounter = 0;
-	uint8_t charPosition = 0;
-	
-  if(loading)
-	{
-    clearCube();
-    charPosition = -1;
-    charCounter = 0;
-    loading = false;
-  }
-  timer++;
-  if(timer > TEXT_TIME) 
-	{
-    timer = 0;
-
-    shift(NEG_Z);
-    charPosition++;
-
-    if(charPosition == 7) 
-		{
-      charCounter++;
-      if (charCounter > len - 1) 
-			{
-        charCounter = 0;
-      }
-      charPosition = 0;
-    }
-
-    if(charPosition == 0) 
-		{
-      for(uint8_t i = 0; i < 8; i++) 
-			{
-        cube[i][0] = characters[string[charCounter] - '0'][i];
-      }
-    }
-  }
-}
 
 void lit() 
 {
   if (loading) 
 	{
     clearCube();
-    for(uint8_t i=0; i<8; i++) 
+    for(uint8_t i=0; i<4; i++) 
 		{
-      for(uint8_t j=0; j<8; j++) 
+      for(uint8_t j=0; j<4; j++) 
 			{
         cube[i][j] = 0xFF;
       }
@@ -713,24 +674,24 @@ void lit()
 
 void setVoxel(uint8_t x, uint8_t y, uint8_t z) 
 {
-  cube[7 - y][7 - z] |= (0x01 << x);
+  cube[3 - y][3 - z] |= (0x01 << x);
 }
 
 void clearVoxel(uint8_t x, uint8_t y, uint8_t z) 
 {
-  cube[7 - y][7 - z] ^= (0x01 << x);
+  cube[3 - y][3 - z] ^= (0x01 << x);
 }
 
 bool getVoxel(uint8_t x, uint8_t y, uint8_t z) 
 {
-  return (cube[7 - y][7 - z] & (0x01 << x)) == (0x01 << x);
+  return (cube[3 - y][3 - z] & (0x01 << x)) == (0x01 << x);
 }
 
 void setPlane(uint8_t axis, uint8_t i) 
 {
-  for (uint8_t j = 0; j < 8; j++) 
+  for (uint8_t j = 0; j < 4; j++) 
 	{
-    for (uint8_t k = 0; k < 8; k++) 
+    for (uint8_t k = 0; k < 4; k++) 
 		{
       if (axis == XAXIS) 
 			{
@@ -752,9 +713,9 @@ void shift(uint8_t dir)
 {
   if(dir == POS_X) 
 	{
-    for(uint8_t y = 0; y < 8; y++) 
+    for(uint8_t y = 0; y < 4; y++) 
 		{
-      for(uint8_t z = 0; z < 8; z++) 
+      for(uint8_t z = 0; z < 4; z++) 
 			{
         cube[y][z] = cube[y][z] << 1;
       }
@@ -762,9 +723,9 @@ void shift(uint8_t dir)
   } 
 	else if(dir == NEG_X) 
 	{
-    for (uint8_t y = 0; y < 8; y++) 
+    for (uint8_t y = 0; y < 4; y++) 
 		{
-      for (uint8_t z = 0; z < 8; z++) 
+      for (uint8_t z = 0; z < 4; z++) 
 			{
         cube[y][z] = cube[y][z] >> 1;
       }
@@ -772,56 +733,56 @@ void shift(uint8_t dir)
   } 
 	else if(dir == POS_Y) 
 	{
-    for (uint8_t y = 1; y < 8; y++) 
+    for (uint8_t y = 1; y < 4; y++) 
 		{
-      for (uint8_t z = 0; z < 8; z++) 
+      for (uint8_t z = 0; z < 4; z++) 
 			{
         cube[y - 1][z] = cube[y][z];
       }
     }
-    for(uint8_t i = 0; i < 8; i++) 
+    for(uint8_t i = 0; i < 4; i++) 
 		{
-      cube[7][i] = 0;
+      cube[3][i] = 0;
     }
   } 
 	else if(dir == NEG_Y) 
 	{
-    for(uint8_t y = 7; y > 0; y--) 
+    for(uint8_t y = 4; y > 0; y--) 
 		{
-      for(uint8_t z = 0; z < 8; z++) 
+      for(uint8_t z = 0; z < 4; z++) 
 			{
         cube[y][z] = cube[y - 1][z];
       }
     }
-    for(uint8_t i = 0; i < 8; i++) 
+    for(uint8_t i = 0; i < 4; i++) 
 		{
       cube[0][i] = 0;
     }
   } 
 	else if (dir == POS_Z) 
 	{
-    for (uint8_t y = 0; y < 8; y++) 
+    for (uint8_t y = 0; y < 4; y++) 
 		{
-      for (uint8_t z = 1; z < 8; z++) 
+      for (uint8_t z = 1; z < 4; z++) 
 			{
         cube[y][z - 1] = cube[y][z];
       }
     }
-    for (uint8_t i = 0; i < 8; i++) 
+    for (uint8_t i = 0; i < 4; i++) 
 		{
-      cube[i][7] = 0;
+      cube[i][3] = 0;
     }
   } 
 	else if (dir == NEG_Z) 
 	{
-    for (uint8_t y = 0; y < 8; y++) 
+    for (uint8_t y = 0; y < 4; y++) 
 		{
-      for (uint8_t z = 7; z > 0; z--) 
+      for (uint8_t z = 3; z > 0; z--) 
 			{
         cube[y][z] = cube[y][z - 1];
       }
     }
-    for (uint8_t i = 0; i < 8; i++) 
+    for (uint8_t i = 0; i < 4; i++) 
 		{
       cube[i][0] = 0;
     }
@@ -849,9 +810,9 @@ void drawCube(uint8_t x, uint8_t y, uint8_t z, uint8_t s)
 
 void lightCube() 
 {
-  for (uint8_t i = 0; i < 8; i++) 
+  for (uint8_t i = 0; i < 4; i++) 
 	{
-    for (uint8_t j = 0; j < 8; j++) 
+    for (uint8_t j = 0; j < 4; j++) 
 		{
       cube[i][j] = 0xFF;
     }
@@ -860,9 +821,9 @@ void lightCube()
 
 void clearCube() 
 {
-  for (uint8_t i = 0; i < 8; i++) 
+  for (uint8_t i = 0; i < 4; i++) 
 	{
-    for (uint8_t j = 0; j < 8; j++) 
+    for (uint8_t j = 0; j < 4; j++) 
 		{
       cube[i][j] = 0;
     }
