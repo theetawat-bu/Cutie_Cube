@@ -51,21 +51,7 @@
 #define WOOP_WOOP_TIME 350
 #define CUBE_JUMP_TIME 200
 #define GLOW_TIME 8
-#define TEXT_TIME 300
 #define CLOCK_TIME 500
-
-uint8_t characters[10][8] = {
-  {0x3C, 0x42, 0x42, 0x42, 0x42, 0x42, 0x42, 0x3C}, //0
-  {0x10, 0x18, 0x14, 0x10, 0x10, 0x10, 0x10, 0x3C}, //1
-  {0x3C, 0x42, 0x40, 0x40, 0x3C, 0x02, 0x02, 0x7E}, //2
-  {0x3C, 0x40, 0x40, 0x3C, 0x40, 0x40, 0x42, 0x3C}, //3
-  {0x22, 0x22, 0x22, 0x22, 0x7E, 0x20, 0x20, 0x20}, //4
-  {0x7E, 0x02, 0x02, 0x3E, 0x40, 0x40, 0x42, 0x3C}, //5
-  {0x3C, 0x02, 0x02, 0x3E, 0x42, 0x42, 0x42, 0x3C}, //6
-  {0x3C, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40}, //7
-  {0x3C, 0x42, 0x42, 0x3C, 0x42, 0x42, 0x42, 0x3C}, //8
-  {0x3C, 0x42, 0x42, 0x42, 0x3C, 0x40, 0x40, 0x3C}, //9
-};
 
 uint8_t cube[4][4];
 uint8_t currentEffect;
@@ -123,7 +109,7 @@ int main()
 	
 	while(true)
 	{
-		
+		/*
 		current_time = randomTimer%1000;
 		randomTimer++;
 		
@@ -132,6 +118,27 @@ int main()
 		Select_Effect(currentEffect);
 		
 		renderCube();
+		*/
+		
+		LL_GPIO_ResetOutputPin(GPIOA, SS);
+		
+		LL_SPI_TransmitData16(SPI1, 0xF);
+		
+		LL_GPIO_SetOutputPin(GPIOA, SS);
+		/*
+		uint8_t i, j;
+		for(i = 0; i < 8; ++i)
+		{
+			LL_GPIO_ResetOutputPin(GPIOA, SS);
+			LL_SPI_TransmitData16(SPI1, 0x01<<i);
+			for(j = 0; j < 8; ++j)
+			{
+				LL_SPI_TransmitData8(SPI1, cube[i][j]);
+				LL_mDelay(500);
+			}
+			LL_GPIO_SetOutputPin(GPIOA, SS);
+		}*/
+		
 	}
 	
 	
@@ -230,6 +237,8 @@ void SPI_Config(void)
 	spi.CRCPoly = 10;
 	
 	LL_SPI_Init(SPI1, &spi);
+	
+	LL_SPI_Enable(SPI1);
 }
 
 void renderCube(void)
@@ -241,7 +250,7 @@ void renderCube(void)
 		LL_SPI_TransmitData8(SPI1, 0x01<<i);
 		for(j = 0; j < 4; ++j)
 		{
-			LL_SPI_TransmitData8(SPI1, cube[i][j]);
+			LL_SPI_TransmitData16(SPI1, cube[i][j]);
 		}
 		LL_GPIO_SetOutputPin(GPIOA, SS);
 	}
@@ -877,8 +886,10 @@ void rtc_config()
 	LL_RTC_ALMA_Init(RTC, LL_RTC_FORMAT_BCD, &RTC_AlarmStruct);
 	
 	NVIC_SetPriority(RTC_Alarm_IRQn, 0);
-	NVIC_EnableIRQ(RTC_Alarm_IRQn);
-}void SystemClock_Config(void)
+	NVIC_EnableIRQ(RTC_Alarm_IRQn);	
+}
+
+void SystemClock_Config(void)
 {
   /* Enable ACC64 access and set FLASH latency */ 
   LL_FLASH_Enable64bitAccess();; 
