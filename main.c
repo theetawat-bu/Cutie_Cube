@@ -102,7 +102,8 @@ bool getVoxel(uint8_t , uint8_t , uint8_t );
 void clearVoxel(uint8_t , uint8_t , uint8_t );
 void drawCube(uint8_t , uint8_t , uint8_t , uint8_t );
 void lightCube(void);
-
+void Select_Effect(uint8_t currentEffect);
+void Active(uint8_t current_time,uint8_t);
 int main()
 {
 	loading = true;
@@ -126,7 +127,18 @@ int main()
 		uint64_t current_time;												//In Progress : current_time = millis()
 		randomTimer++;
 		
-		if(!LL_GPIO_IsInputPinSet(GPIOB, BUTTON_PIN) || (current_time - lastEffectChange >= effectDuration && autoRotate))
+		Active(current_time,randomTimer);
+		
+		Select_Effect(currentEffect);
+		
+		renderCube();
+	}
+	
+	
+}
+void Active(uint8_t current_time,uint8_t randomTimer)
+{
+	if(!LL_GPIO_IsInputPinSet(GPIOB, BUTTON_PIN) || (current_time - lastEffectChange >= effectDuration && autoRotate))
 		{
 			//lastEffectChange =                      //millis()
 			clearCube();
@@ -149,7 +161,11 @@ int main()
 			LL_GPIO_TogglePin(GPIOB, GREEN_LED);
 		}
 		
-		switch (currentEffect)
+}
+
+void Select_Effect(uint8_t currentEffect)
+{
+	switch (currentEffect)
 		{
 			case RAIN : rain(); break;
 			case PLANE_BOING : planeBoing(); break;
@@ -162,9 +178,6 @@ int main()
 			
 			default : rain();
 		}
-		
-		renderCube();
-	}
 }
 
 void GPIO_Config(void)
