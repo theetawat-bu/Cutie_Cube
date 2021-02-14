@@ -27,8 +27,8 @@
 #define GREEN_LED LL_GPIO_PIN_7
 #define SS LL_GPIO_PIN_4
 #define SCK LL_GPIO_PIN_5
-#define MISO LL_GPIO_PIN_6
-#define MOSI LL_GPIO_PIN_7
+#define MISO LL_GPIO_PIN_11
+#define MOSI LL_GPIO_PIN_12
 
 #define TOTAL_EFFECTS 8
 #define RAIN 0
@@ -116,7 +116,7 @@ int main()
 		uint64_t current_time;												//In Progress : current_time = millis()
 		randomTimer++;
 		
-		if(!LL_GPIO_IsInputPinSet(GPIOB, BUTTON_PIN) || (current_time - lastEffectChange >= effectDuration && autoRotate))
+		if(!LL_GPIO_IsInputPinSet(GPIOB, BUTTON_PIN))
 		{
 			//lastEffectChange =                      //millis()
 			clearCube();
