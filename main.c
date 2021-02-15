@@ -38,12 +38,8 @@
 
 #define TOTAL_EFFECTS 7
 #define RAIN 0
-#define PLANE_BOING 1
 #define SEND_VOXELS 2
-#define WOOP_WOOP 3
-#define CUBE_JUMP 4
-#define GLOW 5
-#define LIT 6
+
 
 #define RAIN_TIME 260
 #define PLANE_BOING_TIME 220
@@ -73,12 +69,8 @@ void SPI_Config(void);
 
 void clearCube(void);
 void rain(void);
-void planeBoing(void);
-void sendVoxels(void);
-void woopWoop(void);
-void cubeJump(void);
-void glow(void);
-void lit(void);
+
+
 void renderCube(void);
 void shift(uint8_t dir);
 void setVoxel(uint8_t , uint8_t , uint8_t );
@@ -175,12 +167,6 @@ void Select_Effect(uint8_t currentEffect)
 	switch (currentEffect)
 		{
 			case RAIN : rain(); break;
-			case PLANE_BOING : planeBoing(); break;
-			case SEND_VOXELS : sendVoxels(); break;
-			case WOOP_WOOP : woopWoop(); break;
-			case CUBE_JUMP : cubeJump(); break;
-			case GLOW : glow(); break;
-			case LIT : lit(); break;
 			
 			default : rain();
 		}
